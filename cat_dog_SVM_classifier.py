@@ -3,7 +3,6 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torchvision import datasets, models, transforms
 from sklearn.svm import SVC
-from sklearn.model_selection import train_test_split
 import numpy as np
 import os
 import time
@@ -13,7 +12,6 @@ import pickle
 file_dir = "./data-shorten"
 output_dir = "./output/SVM_trained.pth"
 TRAIN = "train"
-VAL = "val"
 TEST = "test"
 
 
@@ -43,13 +41,6 @@ def get_data(file_dir):
                 transforms.ToTensor(),
             ]
         ),
-        VAL: transforms.Compose(
-            [
-                transforms.Resize(256), 
-                transforms.CenterCrop(224), 
-                transforms.ToTensor()
-            ]
-        ),
         TEST: transforms.Compose(
             [
                 transforms.Resize(254), 
@@ -63,19 +54,19 @@ def get_data(file_dir):
         file: datasets.ImageFolder(
             os.path.join(file_dir, file), transform=data_transform[file]
         )
-        for file in [TRAIN, VAL, TEST]
+        for file in [TRAIN, TEST]
     }
     # Load data into dataloaders
     dataloaders = {
         file: torch.utils.data.DataLoader(
             datasets_img[file], batch_size=8, shuffle=True, num_workers=4
         )
-        for file in [TRAIN, VAL, TEST]
+        for file in [TRAIN, TEST]
     }
     # Get class names and dataset sizes
     class_names = datasets_img[TRAIN].classes
-    datasets_size = {file: len(datasets_img[file]) for file in [TRAIN, VAL, TEST]}
-    for file in [TRAIN, VAL, TEST]:
+    datasets_size = {file: len(datasets_img[file]) for file in [TRAIN, TEST]}
+    for file in [TRAIN, TEST]:
         print(f"[INFO] Loaded {datasets_size[file]} images under {file}")
     print(f"Classes: {class_names}")
 
@@ -109,6 +100,17 @@ def get_vgg16_modified_model(weights=models.VGG16_BN_Weights.DEFAULT):
 
 
 def get_features(vgg, file=TRAIN):
+    """
+    Extract features and labels from the VGG-16 model for a given dataset.
+
+    Args:
+        vgg (torchvision.models.vgg16): VGG-16 model with removed classifier.
+        file (str, optional): Name of the dataset directory. Defaults to TRAIN.
+
+    Returns:
+        svm_features (list): List of feature vectors for the dataset.
+        svm_labels (list): List of corresponding labels for the dataset.
+    """
     print(f"[INFO] Getting '{file}' features...")
     svm_features = []
     svm_labels = []
@@ -152,10 +154,25 @@ def get_features(vgg, file=TRAIN):
     return svm_features, svm_labels
 
 
-def svm_classifier(train_data, test_data, epochs=5):
+def svm_classifier(train_data, test_data):
+    """
+    Train an SVM classifier on the extracted features and evaluate its performance.
+
+    Args:
+        train_data (list): [svm_train_features, svm_train_labels], where svm_train_features is a list of training feature vectors,
+                           and svm_train_labels is a list of corresponding training labels.
+        test_data (list): [svm_test_features, svm_test_labels], where svm_test_features is a list of test feature vectors,
+                          and svm_test_labels is a list of corresponding test labels.
+
+    Returns:
+        svm_model (sklearn.svm.SVC): Trained SVM classifier.
+        score (float): Accuracy score of the trained SVM classifier on the test dataset.
+    """
+
     since = time.time()
     FEATURE_INDEX = 0
     LABEL_INDEX = 1
+    
     # There are 1000 images in the train data
     train_features = np.array(train_data[FEATURE_INDEX])
     # print(features.shape)     # (1000, 25088)
@@ -167,6 +184,7 @@ def svm_classifier(train_data, test_data, epochs=5):
     # print(features.shape)     # (1000, 25088)
     test_labels = np.array(test_data[LABEL_INDEX])
     # print(labels.shape)       # (1000,)
+    
     # Create model
     svm_model = SVC(gamma="auto")
     # Train model
@@ -197,7 +215,6 @@ if __name__ == "__main__":
     svm_model, score = svm_classifier(
         [svm_train_features, svm_train_labels],
         [svm_test_features, svm_test_labels],
-        epochs=5
     )
     # Save model
     print('[INFO] Saving model...')
