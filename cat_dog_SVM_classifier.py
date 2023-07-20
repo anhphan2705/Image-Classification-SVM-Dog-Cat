@@ -11,7 +11,7 @@ import pickle
 
 ## Define file directories
 file_dir = "./data-shorten"
-output_dir = "./output/VGG16_SVM_trained.pth"
+output_dir = "./output/SVM_trained.pth"
 TRAIN = "train"
 VAL = "val"
 TEST = "test"
@@ -167,17 +167,15 @@ def svm_classifier(train_data, test_data, epochs=5):
     # print(features.shape)     # (1000, 25088)
     test_labels = np.array(test_data[LABEL_INDEX])
     # print(labels.shape)       # (1000,)
-    scores = []
+    # Create model
     svm_model = SVC(gamma="auto")
-    for epoch in range(epochs):
-        print(f"[SVM Model] Training epoch {epoch+1}/{epochs}...")
-        svm_model.fit(train_features, train_labels)
-        score = svm_model.score(test_features, test_labels)
-        print(f"[SVM Model] The score for epoch {epoch+1} is: {score:.4f}\n")
-        scores.append(score)
+    # Train model
+    svm_model.fit(train_features, train_labels)
+    # Get result
+    score = svm_model.score(test_features, test_labels)
     elapsed_time = time.time() - since
-    print(f"[INFO] Model has score mean: {np.mean(scores):.4f} and standard deviation: {np.std(scores):.4f} in {(elapsed_time // 60):.0f}m {(elapsed_time % 60):.0f}s")
-    return svm_model, np.mean(scores), np.std(scores)
+    print(f"[INFO] Model has score mean: {score:.4f} in {(elapsed_time // 60):.0f}m {(elapsed_time % 60):.0f}s")
+    return svm_model, score
 
 
 if __name__ == "__main__":
@@ -196,7 +194,7 @@ if __name__ == "__main__":
     svm_train_features, svm_train_labels = get_features(vgg16, TRAIN)
     svm_test_features, svm_test_labels = get_features(vgg16, TEST)
     # Run SVM 
-    svm_model, score_mean, score_stdv = svm_classifier(
+    svm_model, score = svm_classifier(
         [svm_train_features, svm_train_labels],
         [svm_test_features, svm_test_labels],
         epochs=5
