@@ -3,14 +3,16 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torchvision import datasets, models, transforms
 from sklearn.svm import SVC
+from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
 import os
 import time
 import pickle
 
 ## Define file directories
-file_dir = "./data-shorten"
+file_dir = "./data-full"
 output_dir = "./output/SVM_trained.pth"
+out_report_dir = './output/classification_report.txt'
 TRAIN = "train"
 TEST = "test"
 
@@ -99,6 +101,56 @@ def get_vgg16_modified_model(weights=models.VGG16_BN_Weights.DEFAULT):
     return vgg16
 
 
+def get_classification_report(truth_values, pred_values):
+    """
+    Generate a classification report and confusion matrix based on ground truth and predicted labels.
+
+    Args:
+        truth_values (list): List of ground truth labels.
+        pred_values (list): List of predicted labels.
+
+    Returns:
+        None
+    """
+    report = classification_report(truth_values, pred_values, target_names=class_names,  digits=4)
+    conf_matrix = confusion_matrix(truth_values, pred_values, normalize='all') 
+    print('[Evalutaion Model] Showing detailed report\n')
+    print(report)
+    print('[Evalutaion Model] Showing confusion matrix')
+    print(f'                       Predicted Label              ')
+    print(f'                         0            1         ')
+    print(f' Truth Label     0   {conf_matrix[0][0]:4f}     {conf_matrix[0][1]:4f}')
+    print(f'                 1   {conf_matrix[1][0]:4f}     {conf_matrix[1][1]:4f}')
+    
+    
+def save_classification_report(truth_values, pred_values, out_report_dir):
+    """
+    Save the classification report and confusion matrix to a text file.
+
+    Args:
+        truth_values (list): List of ground truth labels.
+        pred_values (list): List of predicted labels.
+        out_report_dir (str): Directory path to save the classification report file.
+        
+    Returns:
+        None
+    """
+    print('[INFO] Saving report...')
+    c_report = classification_report(truth_values, pred_values, target_names=class_names,  digits=4)
+    conf_matrix = confusion_matrix(truth_values, pred_values, normalize='all') 
+    matrix_report = ['                       Predicted Label              ', 
+                     f'                         0            1         ',
+                     f' Truth Label     0   {conf_matrix[0][0]:4f}     {conf_matrix[0][1]:4f}',
+                     f'                 1   {conf_matrix[1][0]:4f}     {conf_matrix[1][1]:4f}']
+    
+    with open(out_report_dir, 'w') as f:
+        f.write(c_report)
+        f.write('\n')
+        for line in matrix_report:
+            f.write(line)
+            f.write('\n')
+            
+
 def get_features(vgg, file=TRAIN):
     """
     Extract features and labels from the VGG-16 model for a given dataset.
@@ -172,7 +224,7 @@ def svm_classifier(train_data, test_data):
     since = time.time()
     FEATURE_INDEX = 0
     LABEL_INDEX = 1
-    
+    print('[INFO] Getting model...')
     # There are 1000 images in the train data
     train_features = np.array(train_data[FEATURE_INDEX])
     # print(features.shape)     # (1000, 25088)
@@ -188,12 +240,18 @@ def svm_classifier(train_data, test_data):
     # Create model
     svm_model = SVC(gamma="auto")
     # Train model
+    print('[INFO] Fitting...')
     svm_model.fit(train_features, train_labels)
+    print('[INFO] Model completed')
     # Get result
-    score = svm_model.score(test_features, test_labels)
+    print('[INFO] Testing...')
+    pred_labels = svm_model.predict(test_features)
+    print('[INFO] Printing classification report')
+    get_classification_report(test_labels, pred_labels)
     elapsed_time = time.time() - since
-    print(f"[INFO] Model has score mean: {score:.4f} in {(elapsed_time // 60):.0f}m {(elapsed_time % 60):.0f}s")
-    return svm_model, score
+    print(f"[INFO] Model produced in {(elapsed_time // 60):.0f}m {(elapsed_time % 60):.0f}s")
+    save_classification_report(test_labels, pred_labels, out_report_dir)
+    return svm_model
 
 
 if __name__ == "__main__":
@@ -212,7 +270,7 @@ if __name__ == "__main__":
     svm_train_features, svm_train_labels = get_features(vgg16, TRAIN)
     svm_test_features, svm_test_labels = get_features(vgg16, TEST)
     # Run SVM 
-    svm_model, score = svm_classifier(
+    svm_model = svm_classifier(
         [svm_train_features, svm_train_labels],
         [svm_test_features, svm_test_labels],
     )
