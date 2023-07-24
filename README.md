@@ -47,9 +47,19 @@ git clone https://github.com/your-username/image-classification.git
 cd image-classification
 ```
 
-2. Prepare your image dataset in the following directory structure:
+2. Download pre-trained model
+
+- I have already had a model fitted with accuracy of 94.71%. You can download it here
+
+    ```
+    https://www.dropbox.com/s/mkcj9486umgnim8/SVM_Train_9471.zip?dl=0
+    ```
+
+3. Prepare your image dataset in the following directory structure:
 
 ```
+cat_dog_SVM_classifier.py
+SVM_trained_9471.pth (optional)
 data-shorten/
     train/
         class1/
@@ -73,13 +83,13 @@ data-shorten/
         ...
 ```
 
-3. Modify the script parameters in the `main.py` file:
+4. Modify the script parameters in the `main.py` file:
 
 - `file_dir`: Path to the root directory containing the dataset.
 - `output_dir`: Path to save the trained SVM model.
 - You can adjust batch size and other hyperparameters as needed.
 
-4. Run the script:
+5. Run the script:
 
 ```bash
 python main.py
